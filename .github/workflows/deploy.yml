@@ -1,0 +1,63 @@
+
+name: To GCS
+
+
+on:
+
+  push:
+    tags:
+      - 'V-*.*.*'
+
+
+
+jobs:
+
+  upload:
+    
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    runs-on: ubuntu-latest
+    
+    steps:
+
+    - name: Check out repository
+      uses: actions/checkout@v3
+
+    - name: Checkout CI
+      uses: actions/checkout@v3
+      with:
+        repository: facetytech/ci
+        token: ${{ secrets.CI_TOKEN }}
+        path: ga
+
+  
+  
+    - name: Write version
+      shell: bash
+      run: |
+        echo ${GITHUB_REF#refs/tags/} > ./text/meta
+  
+    - name: Auth
+      uses: ./ga/gcp/auth/workload
+      with:
+        project-id: ${{ vars.GCP_DATA_PROJECT_ID }}
+        project-num: ${{ secrets.GCP_DATA_PROJECT_NUM }}
+        wif-pool: ${{ secrets.GCP_DATA_WIF_POOL }}
+        wif-provider: ${{ secrets.GCP_DATA_WIF_PROVIDER_GITHUB }}
+        service-account: ${{ secrets.GCP_PIPELINE_LOGIN }}
+  
+    - name: Copy Version
+      uses: ./ga/gcp/copy2gcs
+      with:
+        target-bucket: ${{ secrets.GCP_AGREEMENTS_BUCKET_FACETY }}
+        bucket-path: "/remark/version/${GITHUB_REF#refs/tags/}"
+        from-path: ./text
+  
+    - name: Copy Current
+      uses: ./ga/gcp/copy2gcs
+      with:
+        target-bucket: ${{ secrets.GCP_AGREEMENTS_BUCKET_FACETY }}
+        bucket-path: /remark/current
+        from-path: ./text
